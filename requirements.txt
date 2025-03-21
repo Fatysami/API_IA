@@ -3,9 +3,7 @@ uvicorn
 pdfplumber
 pytesseract
 pdf2image
-pillow
+Pillow
 openai
+pyjwt
 python-dotenv
-python-multipart
-passlib[bcrypt]
-PyJWT
