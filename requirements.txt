@@ -7,3 +7,4 @@ Pillow
 openai
 pyjwt
 python-dotenv
+python-multipart
