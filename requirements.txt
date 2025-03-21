@@ -5,6 +5,7 @@ pytesseract
 pdf2image
 pillow
 openai
-jwt
 python-dotenv
 python-multipart
+passlib[bcrypt]
+PyJWT
