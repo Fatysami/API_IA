@@ -7,28 +7,38 @@ import jwt
 import datetime
 import os
 import sys
-from fastapi import FastAPI, File, UploadFile, Form, Header, HTTPException, Depends
+from fastapi import FastAPI, File, UploadFile, Form, Header, HTTPException, Depends, Request
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-# Charger les variables d'environnement
+# ✅ Charger les variables d'environnement
 load_dotenv()
 
-# 🔧 Définir Tesseract OCR pour Docker
-pytesseract.pytesseract.tesseract_cmd = "tesseract"
-
-# Forcer UTF-8 dans la console pour éviter les erreurs d'affichage
+# ✅ Forcer UTF-8 dans la console pour éviter les erreurs d'affichage
 sys.stdout.reconfigure(encoding='utf-8')
 
 # 🔐 Sécurité JWT
 SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-key")
 ALGORITHM = "HS256"
 
+# ✅ Définition de l'API FastAPI
 app = FastAPI()
+
+# ✅ Configuration des CORS dynamiques via l'ENV
+origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")  
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["*"],
+)
 
 # ✅ Vérification du token JWT
 def verify_api_key(api_key: str = Header(None)):
     if not api_key:
-        raise HTTPException(status_code=403, detail="API-Key est manquant dans les Headers")
+        raise HTTPException(status_code=403, detail="API-Key manquant dans les Headers")
     try:
         payload = jwt.decode(api_key, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
@@ -37,14 +47,14 @@ def verify_api_key(api_key: str = Header(None)):
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=403, detail="Token invalide")
 
-# ✅ Génération d'un token JWT
+# ✅ Génération d'un token JWT sécurisé
 @app.post("/generate-token/")
 def generate_token(username: str = Form(...)):
     expiration = datetime.datetime.utcnow() + datetime.timedelta(hours=2)
     token = jwt.encode({"sub": username, "exp": expiration}, SECRET_KEY, algorithm=ALGORITHM)
     return {"access_token": token}
 
-# ✅ Extraction de texte depuis un PDF (avec OCR si nécessaire)
+# ✅ Extraction de texte depuis un PDF (avec OCR via Docker)
 def extract_text_from_pdf(file):
     print("📂 Lecture du fichier PDF...")
     try:
