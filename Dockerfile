@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Exposer le port pour Railway
-EXPOSE ${PORT}
+EXPOSE 8000
 
-# Lancer l'application avec Uvicorn et utiliser $PORT pour Railway
-CMD ["sh", "-c", "uvicorn cv-analyser-pdf:app --host 0.0.0.0 --port ${PORT}"]
+# Lancer l'application avec Uvicorn et une valeur par défaut pour $PORT
+CMD ["sh", "-c", "uvicorn cv-analyser-pdf:app --host 0.0.0.0 --port ${PORT:-8000}"]
