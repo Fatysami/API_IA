@@ -9,5 +9,4 @@ COPY . .
 
 EXPOSE 8000
 
-# ✅ Interprète la variable d'environnement PORT grâce à `sh -c`
 CMD sh -c "uvicorn cv-analyser-pdf:app --host 0.0.0.0 --port ${PORT:-8000}"
