@@ -2,9 +2,10 @@ fastapi
 uvicorn
 pdfplumber
 pytesseract
-pdf2image
-Pillow
-openai
 python-multipart
 python-dotenv
+PyJWT==2.8.0
+openai
+Pillow
 passlib[bcrypt]
+pdf2image
