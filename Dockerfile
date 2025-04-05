@@ -9,4 +9,5 @@ COPY . .
 
 EXPOSE 8000
 
+# ✅ Lancement dynamique avec le port injecté par Railway
 CMD sh -c "uvicorn cv-analyser-pdf:app --host 0.0.0.0 --port $PORT"
