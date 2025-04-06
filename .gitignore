@@ -1,0 +1,5 @@
+# Env vars
+.env
+
+# Tests
+test_gemini_models.py

@@ -9,3 +9,7 @@ PyJWT
 passlib[bcrypt]
 python-dotenv
 openai
+google-generativeai
+anthropic
+transformers
+torch
