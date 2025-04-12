@@ -8,6 +8,7 @@ import datetime
 import os
 import json
 import sys
+import time
 from fastapi import FastAPI, File, UploadFile, Form, Header, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -60,6 +61,7 @@ def generate_token(username: str = Form(...), password: str = Form(...)):
 
 def extract_text_from_pdf(file):
     try:
+        start = time.time()
         with pdfplumber.open(file) as pdf:
             text = "\n".join([page.extract_text() for page in pdf.pages if page.extract_text()])
         if not text.strip():
@@ -67,6 +69,8 @@ def extract_text_from_pdf(file):
             images = convert_from_path(file.name)
             for img in images:
                 text += pytesseract.image_to_string(img, lang="eng+fra")
+        end = time.time()
+        print(f"⏱ Temps d'extraction PDF: {end - start:.2f} secondes")
         return text.strip()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur d'extraction de texte : {e}")
@@ -80,6 +84,7 @@ async def analyze_cv(
     gemini_api_key: str = Form(None),
     mistral_url: str = Form("http://localhost:11434/api/chat"),
     claude_api_key: str = Form(None),
+    groq_api_key: str = Form(None),  
     user: dict = Depends(verify_api_key)
 ):
     try:
@@ -108,7 +113,7 @@ async def analyze_cv(
             result = model.generate_content([prompt, text])
             return {"engine": "gemini", "filename": file.filename, "analysis": result.text}
 
-        # ✅ CLAUDE (Anthropic)
+        # ✅ CLAUDE
         elif ai_provider == "claude":
             if not claude_api_key:
                 raise HTTPException(status_code=422, detail="Clé API Claude manquante")
@@ -120,18 +125,53 @@ async def analyze_cv(
             body = {
                 "model": "claude-3-opus-20240229",
                 "max_tokens": 1000,
-                "messages": [
-                    {"role": "user", "content": f"{prompt}\n\n{text}"}
-                ]
+                "messages": [{"role": "user", "content": f"{prompt}\n\n{text}"}]
             }
             async with httpx.AsyncClient() as client:
                 resp = await client.post("https://api.anthropic.com/v1/messages", headers=headers, json=body)
                 output = resp.json()
             return {"engine": "claude", "filename": file.filename, "analysis": output['content'][0]['text']}
 
-        # ✅ MISTRAL (via Ollama local ou autre)
+         # ✅ GROQ (Mixtral via Groq API)
+        elif ai_provider == "groq":
+            if not groq_api_key:
+                raise HTTPException(status_code=422, detail="Clé API Groq manquante")
+
+            headers = {
+                "Authorization": f"Bearer {groq_api_key}",
+                "Content-Type": "application/json"
+            }
+
+            body = {
+                "model": "llama3-8b-8192",  # ✅ Vérifié officiellement
+                "messages": [
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": text}
+                ],
+                "temperature": 0.7,
+                "max_tokens": 1000
+            }
+
+            try:
+                async with httpx.AsyncClient(timeout=60.0) as client:
+                    response = await client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers=headers,
+                        json=body
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    return {
+                        "engine": "groq",
+                        "filename": file.filename,
+                        "analysis": data["choices"][0]["message"]["content"]
+                    }
+            except httpx.HTTPStatusError as err:
+                raise HTTPException(status_code=500, detail=f"Erreur GROQ: {err.response.text}")
+        
+        # ✅ MISTRAL
         elif ai_provider == "mistral":
-            payload = {
+            mistral_payload = {
                 "model": "mistral",
                 "messages": [
                     {"role": "system", "content": prompt},
@@ -139,8 +179,10 @@ async def analyze_cv(
                 ],
                 "stream": False
             }
-            async with httpx.AsyncClient() as client:
-                resp = await client.post(mistral_url, json=payload)
+            timeout = httpx.Timeout(60.0, connect=10.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.post(mistral_url, json=mistral_payload)
+                resp.raise_for_status()
                 output = resp.json()
             return {"engine": "mistral", "filename": file.filename, "analysis": output['message']['content']}
 
